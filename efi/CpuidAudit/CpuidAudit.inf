@@ -1,0 +1,63 @@
+##
+## CpuidAudit.inf — EDK II Module Definition
+##
+## Status     : [Inference] — standard UEFI application INF; not yet compiled
+##              against Apple EFI or any Z68 platform
+## Credibility: [Inference]
+##
+## Build this module with an EDK II package DSC:
+##   [Components]
+##     lga1155-2011-interposer/efi/CpuidAudit/CpuidAudit.inf
+##
+## Output: CpuidAudit.efi  (UEFI application, x86_64)
+##
+## Deployment:
+##   Copy to FAT32 USB drive as EFI/BOOT/BOOTX64.EFI
+##   Boot iMac12,2 from USB. Output displayed on screen.
+##   Redirect serial output to capture full leaf dump.
+##
+## Dependencies:
+##   EDK II MdePkg, MdeModulePkg
+##   BaseLib (for AsmCpuidEx, AsmReadMsr64)
+##   UefiLib, UefiApplicationEntryPoint
+##   EFI_MP_SERVICES_PROTOCOL_GUID (MdePkg/Include/Protocol/MpService.h)
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010006
+  BASE_NAME                      = CpuidAudit
+  FILE_GUID                      = 4A3F7B2C-1D9E-4E8A-B5C0-2F6D8A1E3B47
+  MODULE_TYPE                    = UEFI_APPLICATION
+  VERSION_STRING                 = 0.1
+  ENTRY_POINT                    = CpuidAuditMain
+
+  # Human-readable description
+  # DO NOT use this as a production tool. Read-only audit for Stage 0.
+
+[Sources]
+  ../src/cpuid_audit.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+
+[LibraryClasses]
+  UefiApplicationEntryPoint     # Provides EFI app entry point wrapper
+  UefiLib                       # Print(), UefiLib helpers
+  UefiBootServicesTableLib      # gBS, gST
+  BaseLib                       # AsmCpuidEx(), AsmReadMsr64()
+  BaseMemoryLib                 # ZeroMem(), CopyMem()
+  MemoryAllocationLib           # AllocateZeroPool(), FreePool()
+  DebugLib                      # DEBUG() macro (optional; output may go to serial)
+
+[Protocols]
+  gEfiMpServiceProtocolGuid     ## CONSUMES — for AP enumeration
+                                ## Optional: gracefully degraded if absent
+
+[Pcd]
+  ## No platform-specific PCDs required for this read-only tool.
+
+[BuildOptions]
+  ## Force x86_64 output regardless of build environment default.
+  ## Apple EFI on iMac12,2 is 64-bit only.
+  *_*_*_CC_FLAGS = -D EFI_ARCH_X64

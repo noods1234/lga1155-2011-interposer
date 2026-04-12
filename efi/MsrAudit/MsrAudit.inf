@@ -1,0 +1,53 @@
+##
+## MsrAudit.inf — EDK II Module Definition for MSR Audit Tool
+##
+## Status     : [Inference] — standard UEFI application INF; not yet compiled
+## Credibility: [Inference]
+##
+## Companion to CpuidAudit. Reads MSRs relevant to Sandy Bridge / Ivy Bridge
+## platform characterisation. Stage 0 deliverable for data/cpuid/.
+##
+## Build alongside CpuidAudit in the same package DSC:
+##   [Components]
+##     lga1155-2011-interposer/efi/CpuidAudit/CpuidAudit.inf
+##     lga1155-2011-interposer/efi/MsrAudit/MsrAudit.inf
+##
+## Output: MsrAudit.efi
+##
+## WARNING: MSR reads that reference non-existent MSRs will #GP.
+## The MSR table in msr_audit.c applies CPU identity filtering to reduce
+## this risk. If the tool hangs, the last printed [>>] line identifies
+## the offending MSR.
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010006
+  BASE_NAME                      = MsrAudit
+  FILE_GUID                      = 7E2A4C18-3D5F-4B9E-A2C1-8F0E6D7B3A52
+  MODULE_TYPE                    = UEFI_APPLICATION
+  VERSION_STRING                 = 0.1
+  ENTRY_POINT                    = MsrAuditMain
+
+[Sources]
+  ../src/msr_audit.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+
+[LibraryClasses]
+  UefiApplicationEntryPoint
+  UefiLib
+  UefiBootServicesTableLib
+  BaseLib                       # AsmReadMsr64(), AsmCpuidEx()
+  BaseMemoryLib                 # ZeroMem()
+  MemoryAllocationLib           # AllocateZeroPool(), FreePool()
+  DebugLib
+
+[Protocols]
+  gEfiMpServiceProtocolGuid     ## CONSUMES — optional; graceful degradation if absent
+
+[Pcd]
+
+[BuildOptions]
+  *_*_*_CC_FLAGS = -D EFI_ARCH_X64

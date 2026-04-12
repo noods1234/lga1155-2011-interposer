@@ -38,10 +38,13 @@
 #include <Uefi.h>
 #include <Library/UefiLib.h>
 #include <Library/UefiBootServicesTableLib.h>
+#include <Library/BaseLib.h>
 #include <Library/DebugLib.h>
 #include <Library/MemoryAllocationLib.h>
 #include <Library/BaseMemoryLib.h>
 #include <Protocol/MpService.h>
+#include "../../include/PhaseLog.h"
+#include "../../include/PlatformCpuid.h"
 
 /* -------------------------------------------------------------------------
  * CPUID leaf collection
@@ -161,34 +164,38 @@ PrintCpuidData (
         );
     }
 
-    /* Decode Family/Model/Stepping from leaf 0x01 EAX for quick reference */
+    /* Decode Family/Model/Stepping using typed PlatformCpuid.h decoder */
     {
-        UINT32  Eax      = Data->Leaves[1].Eax; /* Leaf index 1 = leaf 0x00000001 */
-        UINT32  Stepping = Eax & 0xF;
-        UINT32  Model    = (Eax >> 4) & 0xF;
-        UINT32  Family   = (Eax >> 8) & 0xF;
-        UINT32  ExtModel = (Eax >> 16) & 0xF;
-        UINT32  ExtFamily= (Eax >> 20) & 0xFF;
-        UINT32  DispModel, DispFamily;
-
-        /* Intel display model / family calculation per SDM Vol.2 CPUID */
-        DispFamily = (Family == 0xF) ? (Family + ExtFamily) : Family;
-        DispModel  = (Family == 0x6 || Family == 0xF)
-                       ? ((ExtModel << 4) | Model)
-                       : Model;
+        DECODED_CPU_INFO  Info;
+        /* Leaf index 1 in our StandardLeaves[] array = leaf 0x00000001 */
+        DecodeCpuInfo (Data->Leaves[1].Eax, Data->Leaves[1].Ecx,
+                       Data->Leaves[1].Edx, &Info);
 
         Print (
             L"    --> DisplayFamily=0x%02X DisplayModel=0x%02X Stepping=0x%01X\n",
-            DispFamily, DispModel, Stepping
+            Info.DisplayFamily, Info.DisplayModel, Info.Stepping
         );
 
-        /* Known models on this platform [Inference] */
-        if (DispFamily == 0x06 && DispModel == 0x2A)
-            Print (L"    --> IDENTIFIED AS: Sandy Bridge (expected on iMac12,2 stock)\n");
-        else if (DispFamily == 0x06 && DispModel == 0x3A)
-            Print (L"    --> IDENTIFIED AS: Ivy Bridge\n");
-        else
-            Print (L"    --> UNRECOGNIZED MODEL for this platform\n");
+        switch (Info.Identity) {
+            case CPU_SANDY_BRIDGE:
+                Print (L"    --> IDENTIFIED AS: Sandy Bridge (expected on iMac12,2 stock)\n");
+                break;
+            case CPU_IVY_BRIDGE:
+                Print (L"    --> IDENTIFIED AS: Ivy Bridge\n");
+                break;
+            case CPU_WRONG_PLATFORM:
+                Print (L"    --> WARNING: WRONG PLATFORM CPU (LGA2011 family on LGA1155 board)\n");
+                break;
+            default:
+                Print (L"    --> UNRECOGNIZED MODEL for this platform\n");
+                break;
+        }
+
+        /* Feature bits that differentiate Sandy Bridge from Ivy Bridge */
+        Print (L"    --> F16C=%d  RDRAND=%d  FMA=%d\n",
+               (INT32)Info.F16cSupported,
+               (INT32)Info.RdrandSupported,
+               (INT32)Info.FmaSupported);
     }
 }
 
