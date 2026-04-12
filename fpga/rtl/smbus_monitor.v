@@ -34,9 +34,11 @@
 `timescale 1ns / 1ps
 
 module smbus_monitor #(
-    parameter CLK_DIV = 125   // clk_i cycles per SMBus bit period / 4 for edge detection
-                              // At 50 MHz clk and 400 kHz SMBus: 50e6 / 400e3 / 4 = 31.25 → 31
-                              // Default 125 assumes 50 MHz clk / 100 kHz SMBus / 4
+    parameter CLK_DIV = 31    // clk_i cycles per SMBus bit period, used for edge timing.
+                              // At 50 MHz clk and 400 kHz SMBus: 50e6 / 400e3 / 4 ≈ 31
+                              // At 50 MHz clk and 100 kHz SMBus: 50e6 / 100e3 / 4 = 125
+                              // Default 31 targets 400 kHz (standard SMBus fast mode).
+                              // Override at instantiation to match actual clk_i and bus speed.
 ) (
     input  wire clk_i,        // system clock (synchronized; see constraints)
     input  wire rst_i,        // synchronous reset, active high

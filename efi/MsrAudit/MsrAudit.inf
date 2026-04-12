@@ -31,6 +31,10 @@
 [Sources]
   ../src/msr_audit.c
 
+[Includes]
+  ../include
+  # Exposes efi/include/PhaseLog.h and efi/include/PlatformCpuid.h to the compiler.
+
 [Packages]
   MdePkg/MdePkg.dec
   MdeModulePkg/MdeModulePkg.dec

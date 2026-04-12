@@ -100,8 +100,11 @@ module spd_responder #(
     // and lets smbus_arbiter handle the open-drain output. A future revision
     // must include proper bit-level timing control.
 
-    localparam MY_ADDR_W = {1'b0, DEVICE_ADDR, 1'b0}; // Write: 0x50 | dev | 0
-    localparam MY_ADDR_R = {1'b0, DEVICE_ADDR, 1'b1}; // Read:  0x50 | dev | 1
+    // DDR3 SPD EEPROM I2C address: 0b1010_A2A1A0 (JEDEC / AT24C02 standard)
+    // Address byte in I2C frame: bits [7:1] = 7-bit address, bit [0] = R/W
+    // 7-bit address = {4'b1010, DEVICE_ADDR[2:0]}
+    // Address byte [7:4] = 4'b1010, [3:1] = DEVICE_ADDR[2:0], [0] = R/W
+    // Note: old MY_ADDR_W/MY_ADDR_R localparams were incorrect (5-bit, wrong encoding) and removed.
 
     localparam SS_IDLE      = 3'd0;
     localparam SS_RECV_PTR  = 3'd1;  // waiting for byte pointer (write transaction)
@@ -111,7 +114,8 @@ module spd_responder #(
     reg [2:0]  ss_state;
     reg [7:0]  byte_ptr;
     reg [7:0]  tx_byte;
-    reg [3:0]  bit_idx;    // which bit of tx_byte we are sending (7 downto 0)
+    // bit_idx removed: was declared but never modified (dead register).
+    // Bit-level SDA timing is not yet implemented; see SS_SEND_BYTE note below.
     reg        tx_active;
 
     always @(posedge clk_i) begin
@@ -119,7 +123,6 @@ module spd_responder #(
             ss_state    <= SS_IDLE;
             byte_ptr    <= 8'h00;
             tx_byte     <= 8'h00;
-            bit_idx     <= 4'd7;
             inject_en_o <= 1'b0;
             inject_sda_o<= 1'b1;
             active_o    <= 1'b0;
@@ -143,20 +146,17 @@ module spd_responder #(
                     SS_IDLE: begin
                         if (mon_byte_valid_i && mon_is_addr_i) begin
                             // Check if this transaction addresses us
-                            if (mon_byte_data_i[7:1] == {1'b0, DEVICE_ADDR} &&
-                                // [Placeholder] The actual 7-bit I2C address is 0b1010_xxx
-                                // where xxx = A2:A0 (device address pins).
-                                // SMBus SPD EEPROM I2C address: 0x50 + DEVICE_ADDR
-                                // 7-bit address field in the address byte: bits [7:1]
-                                // 0x50 in 7-bit = 0b101_0000. With device: 0b101_0XXX
-                                // We use [7:4] == 4'b1010 check below instead.
-                                mon_byte_data_i[7:4] == 4'b1010 &&
-                                mon_byte_data_i[3:1] == DEVICE_ADDR) begin
+                            // Address byte: [7:4]=1010 (SPD EEPROM prefix, JEDEC/AT24C02)
+                            //               [3:1]=DEVICE_ADDR (A2:A0 pins, 0-7)
+                            //               [0]  =R/W bit
+                            // For DEVICE_ADDR=0: full byte=0xA0(W) or 0xA1(R)
+                            // For DEVICE_ADDR=1: full byte=0xA2(W) or 0xA3(R) etc.
+                            if (mon_byte_data_i[7:4] == 4'b1010 &&
+                                mon_byte_data_i[3:1] == DEVICE_ADDR[2:0]) begin
                                 active_o <= 1'b1;
                                 if (mon_byte_data_i[0]) begin
                                     // Read transaction: start sending ROM data
                                     tx_byte     <= spd_rom[byte_ptr];
-                                    bit_idx     <= 4'd7;
                                     tx_active   <= 1'b1;
                                     inject_en_o <= 1'b1;
                                     ss_state    <= SS_SEND_BYTE;

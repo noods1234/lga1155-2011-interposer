@@ -37,6 +37,11 @@
 [Sources]
   ../src/cpuid_audit.c
 
+[Includes]
+  ../include
+  # Exposes efi/include/PhaseLog.h and efi/include/PlatformCpuid.h to the compiler.
+  # Without this section, EDK II build will not find these headers via relative path.
+
 [Packages]
   MdePkg/MdePkg.dec
   MdeModulePkg/MdeModulePkg.dec

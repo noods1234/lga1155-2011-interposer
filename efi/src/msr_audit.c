@@ -274,6 +274,7 @@ MsrAuditMain (
     IN EFI_SYSTEM_TABLE  *SystemTable
 )
 {
+    /* All local variables declared at function scope for C89 compatibility. */
     EFI_STATUS                Status;
     EFI_MP_SERVICES_PROTOCOL *MpServices;
     EFI_GUID                  MpServicesGuid = EFI_MP_SERVICES_PROTOCOL_GUID;
@@ -282,11 +283,14 @@ MsrAuditMain (
     UINTN                     i;
     PROCESSOR_MSR_DATA       *MsrData;
     PROCESSOR_MSR_DATA        BspData;
+    UINT32                    CpuidEax;
+    UINT32                    CpuidEbx;
+    UINT32                    CpuidEcx;
+    UINT32                    CpuidEdx;
+    DECODED_CPU_INFO          CpuInfo;
 
     /* Collect BSP CPUID first so we can apply identity filter */
-    UINT32  CpuidEax, CpuidEbx, CpuidEcx, CpuidEdx;
     AsmCpuidEx (0x00000001, 0, &CpuidEax, &CpuidEbx, &CpuidEcx, &CpuidEdx);
-    DECODED_CPU_INFO  CpuInfo;
     DecodeCpuInfo (CpuidEax, CpuidEcx, CpuidEdx, &CpuInfo);
 
     PHASE_SEPARATOR ();
