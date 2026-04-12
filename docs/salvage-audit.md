@@ -1,68 +1,150 @@
-# Salvage Audit: Inherited / Legacy Code
+# Salvage Audit — Engineering Ledger
 
 **Source repository**: `noods1234/apple-set-os`  
 **Source branch**: `claude/haswell-interposer-imac-lcEvg`  
 **Representative commit**: `bb1bacbc2190b89d13e89d43fd6d8ff50a6b7698`  
-**Audit date**: Repository inception  
-**Policy**: Every file is Keep / Rewrite / Reject. No file is carried over unchanged without explicit justification. No placeholder or synthetic value may remain unlabeled.
-
-**Note on access**: The source repo is read-only for salvage purposes only. Do not develop inside it. The handoff document contains per-file analysis that was used to produce this audit.
+**Policy**: Every inherited artifact is Keep / Rewrite / Reject. No file is promoted to the new repo without an explicit row in this table.  
+**Ledger version**: 2 (expanded from initial summary; reflects actual implementation state)
 
 ---
 
-## Executive Summary
+## Column Definitions
 
-The source branch is worth **mining, not inheriting**. It contains real scaffolding, some technically literate work, and useful subsystem ideas. It does not demonstrate closure on the core hardware risks. The biggest problems are:
-
-1. Repository identity is still that of the older `apple_set_os.efi` utility — this project owns a different problem boundary.
-2. The FPGA bridge file is a single monolithic module combining SMBus, SPD emulation, PMBus, and DDR timing in one file — untestable as a unit.
-3. The EFI CPUID file uses hard-coded protocol function pointer offsets rather than typed EFI protocol structs — fragile and incorrect.
-4. `--nop-mrc` appears as a usable code path rather than a quarantined experiment — violates the project's non-negotiable rules.
-5. The most critical subsystem (memory initialization closure) is still speculative.
-
----
-
-## File-by-File Salvage Table
-
-| # | Path (source) | Subsystem | Current Status | Credibility | Decision | Reason | Immediate Next Action |
-|---|---------------|-----------|---------------|-------------|----------|--------|----------------------|
-| 1 | `interposer/memory/fpga_ddr_bridge.v` | FPGA / SMBus / SPD / PMBus | Conceptual scaffold with real RTL blocks. Hard-coded SPD content with placeholder CRC. Simplified timing comments that do not constitute an electrical interface spec. External level-shift assumed without specification. | Low-to-moderate | **Rewrite** | (a) Monolithic — combines SMBus monitor, SPD responder, PMBus stub, and DDR timing hints in one file. (b) SPD bytes are hard-coded with a placeholder CRC — invalid for any live experiment. (c) Timing comments are not synthesis constraints. (d) No testbench. (e) Level-shift assumption unspecified. | Split into five modules: `smbus_monitor.v`, `smbus_arbiter.v`, `spd_responder.v`, `pmbus_master.v` (stub), `telemetry_uart.v`. Replace inline SPD ROM with output from `tools/spd-gen/` pipeline. Add testbench for each module. |
-| 2 | `efi/haswell_e_cpuid.c` | EFI bring-up helper | Real EFI source. Uses EFI services and MP startup logic. Protocol function pointers obtained via hard-coded byte offset arithmetic rather than proper typed protocol structures. | Moderate (EFI structure knowledge present; access pattern wrong) | **Rewrite** | (a) Hard-coded protocol pointer offsets are not portable across EFI implementations. (b) Offset access bypasses the typed `EFI_BOOT_SERVICES.LocateProtocol()` contract. (c) Absent: phase logging, serial/debug trace checkpoints, measurable abort conditions. (d) Absent: any mechanism to distinguish Sandy Bridge vs. Ivy Bridge before taking action. | Rewrite as `efi/src/cpuid_audit.c` — read-only, typed protocol access, full CPUID leaf dump to serial. No spoofing. Spoofing is Stage 2+ only, in a separate file, with explicit experiment gate. |
-| 3 | `scripts/analyze_efi_cpuid.py` | Firmware extraction / analysis / patching | One of the more useful inherited files. Clearly exposes the experimental firmware strategy including `--nop-mrc`. Parsing logic appears genuine and reusable. `--nop-mrc` is present as a code path but not behind an experiment gate. | Moderate | **Keep parsing logic; rewrite structure** | (a) The core parsing and pattern-matching logic is worth carrying forward. (b) The monolithic script mixes extraction, analysis, patch generation, and validation — these must be separate tools with separate outputs. (c) `--nop-mrc` must be moved behind an experiment profile; it must never be the default or a simple flag. | Split into `tools/efi-audit/extract.py`, `tools/efi-audit/analyze.py`, `tools/efi-audit/patchgen.py`, `tools/efi-audit/validate.py`. Preserve useful parsing logic in `analyze.py`. Move `--nop-mrc` into a named experiment profile in `experiments/mrc-nop-hypothesis/`. |
-| 4 | `opencore/ACPI/SSDT-PMC.dsl` | ACPI / macOS integration | Best of the four reviewed files. Z68/Cougar Point device model is internally coherent. Correctly retains `SBUS` at D31:F3. Correctly omits an earlier mistaken `PPMC` declaration. | Moderate-to-high | **Keep with light review** | (a) Correct device model for Z68 Cougar Point. (b) SBUS placement is accurate. (c) No mistaken PPMC. (d) Still requires verification against a real iMac DSDT before use — the SSDT may add a device that already exists in the DSDT, which would cause a conflict. | Move to `opencore/ACPI/reference/SSDT-PMC-z68-reference.dsl`. Add header noting it is a reference fragment, not ready-to-apply. Obtain real DSDT via `acpidump` in Stage 0 and verify compatibility before any use. |
+| Column | Meaning |
+|--------|---------|
+| `inherited_path` | Path in `noods1234/apple-set-os` |
+| `new_path` | Path in this repo, or `—` if rejected |
+| `subsystem` | Functional area |
+| `decision` | Keep / Rewrite / Reject |
+| `credibility` | Verified / Inference / Hypothesis / Placeholder |
+| `impl_status` | Current state of the new-path artifact |
+| `validation_status` | What has been confirmed against hardware or spec |
+| `blocker` | What prevents promotion to next stage |
+| `next_action` | Concrete next step with owner field |
+| `notes` | Rationale and context |
 
 ---
 
-## Additional Files (Inferred from Repo Structure)
+## Primary Files
 
-| # | Path (inferred) | Decision | Reason |
-|---|----------------|----------|--------|
-| 5 | `opencore/config.plist` | **Reject** | If derived from the same lineage as the CPUID C file, it will contain wrong-platform CPUID masks. Build from scratch in Stage 2+ against actual hardware. |
-| 6 | Any `mrc_bypass.*` | **Quarantine → `experiments/mrc-nop-hypothesis/`** | `--nop-mrc` is not a default. Any script that wraps MRC bypass as a callable option must be moved to experiments and given `EXPERIMENT_ONLY` headers. |
-| 7 | Old `README.md` / `docs/` | **Reject root identity; extract claims case-by-case** | Repository identity must not be carried over. Individual factual claims may be worth extracting if tagged with credibility. |
-| 8 | `interposer/` directory structure | **Partial — use as reference only** | The directory decomposition concept is useful but the module boundaries are wrong. New fpga/ layout supersedes it. |
+### Row 1 — FPGA Bridge
+
+| Field | Value |
+|-------|-------|
+| **inherited_path** | `interposer/memory/fpga_ddr_bridge.v` |
+| **new_path** | `fpga/rtl/smbus_monitor.v`, `fpga/rtl/smbus_arbiter.v`, `fpga/rtl/spd_responder.v`, `fpga/rtl/pmbus_master.v`, `fpga/rtl/telemetry_uart.v` |
+| **subsystem** | FPGA / SMBus / SPD |
+| **decision** | **Rewrite** |
+| **credibility** | [Inference] — design patterns; [Placeholder] — all timing parameters |
+| **impl_status** | Partial. `smbus_monitor.v` and `telemetry_uart.v` are structurally complete. `smbus_arbiter.v` clock-stretching is a marked stub. `spd_responder.v` bit-level SDA drive is NON_FUNCTIONAL. `pmbus_master.v` is a tie-off stub. |
+| **validation_status** | Not validated. No testbench. No simulation run. No hardware test. |
+| **blocker** | (1) `spd_responder.v` address match was wrong (BUG-01 — fixed in audit pass). (2) Bit-level I2C SDA output not implemented in `spd_responder.v`. (3) Clock stretching not implemented in `smbus_arbiter.v`. (4) No testbench for any module. SPD ROM has no validated hex image to load. |
+| **next_action** | Write `fpga/tb/smbus_monitor_tb.v` and `fpga/tb/telemetry_uart_tb.v`. These are the minimum for Stage 1 gate. Do not advance `spd_responder` or `smbus_arbiter` to hardware until bit-level timing and clock stretch are implemented and simulated. |
+| **notes** | Old `fpga_ddr_bridge.v` was monolithic (one file covering SMBus, SPD, PMBus, and DDR3 hints). Hard-coded SPD bytes with placeholder CRC. No synthesis constraints. No testbench. Split was correct; depth of each new module is still insufficient for hardware deployment. SPD content replaced with `$readmemh` pipeline; ROM hex file not yet generated (requires Stage 0 DIMM capture). `MY_ADDR_W/MY_ADDR_R` localparams from old code were wrong and removed. |
 
 ---
 
-## What to Carry Forward
+### Row 2 — EFI CPUID Helper
 
-| Item | Disposition | Target path |
-|------|-------------|-------------|
-| Corrected Z68 ACPI logic (`SBUS` vs. `PPMC` fix) | Keep as reference fragment | `opencore/ACPI/reference/SSDT-PMC-z68-reference.dsl` |
-| Firmware extraction and analysis pipeline concept | Rewrite into four tools | `tools/efi-audit/` |
-| SMBus monitor RTL concept | Rewrite as standalone module | `fpga/rtl/smbus_monitor.v` |
-| SPD responder concept | Rewrite with external ROM | `fpga/rtl/spd_responder.v` |
-| SMBus arbiter concept | Rewrite as standalone module | `fpga/rtl/smbus_arbiter.v` |
-| Telemetry UART concept | Rewrite as standalone module | `fpga/rtl/telemetry_uart.v` |
+| Field | Value |
+|-------|-------|
+| **inherited_path** | `efi/haswell_e_cpuid.c` |
+| **new_path** | `efi/src/cpuid_audit.c`, `efi/src/msr_audit.c` |
+| **subsystem** | EFI / Platform Identification |
+| **decision** | **Reject** inherited; **rewrite** from scratch |
+| **credibility** | [Inference] — EFI protocol patterns; [Placeholder] — not compiled on target |
+| **impl_status** | `cpuid_audit.c`: structurally complete, uses typed EFI protocol access, decodes Sandy Bridge vs. Ivy Bridge from leaf 0x01 ECX. `msr_audit.c`: complete, reads 20 relevant MSRs with CPU-identity filter. `CpuidAudit.inf` and `MsrAudit.inf`: build definitions written; `[Includes]` section was missing and has been fixed (BUG-03). |
+| **validation_status** | Not compiled. Not tested on any platform. Not tested on iMac12,2 Apple EFI specifically. |
+| **blocker** | (1) EDK II build environment not set up in this repo. (2) Apple EFI compatibility with `EFI_MP_SERVICES_PROTOCOL` unknown (R-005). (3) `AsmReadMsr64` has no `#GP` guard; tool will hang on unknown MSR. |
+| **next_action** | Set up EDK II build. Compile both tools. Test on any UEFI platform before iMac12,2. Document which EDK II tag and toolchain were used. |
+| **notes** | The rejected `haswell_e_cpuid.c` targeted Haswell-E (LGA2011-3) — wrong CPU family for this project. It also used hard-coded function-pointer offset arithmetic to access EFI services, bypassing the typed `gBS` interface. Both problems are corrected in the rewrite. The rewrite is read-only. No CPUID spoofing. `msr_audit.c` C89 declaration-after-statement bug was found and fixed in audit pass (BUG-02). |
 
-## What NOT to Carry Forward
+---
 
-| Item | Reason |
-|------|--------|
-| Old repo identity / README | Wrong project boundary |
-| Hard-coded SPD bytes and placeholder CRC | Invalid for any live experiment |
-| Hard-coded EFI protocol pointer offsets | Fragile; incorrect access pattern |
-| `--nop-mrc` as a default or simple flag | Violates project non-negotiable rule #9 |
-| Any claim that OpenCore completion is near or that OS integration is a near-term gate | Hardware bring-up truth is the primary criterion |
-| DDR3 signal routing logic from `fpga_ddr_bridge.v` | Deferred to Stage 3+; not carried into active code |
-| PMBus master logic from `fpga_ddr_bridge.v` | Stub only; not implemented |
+### Row 3 — EFI Firmware Analysis Script
+
+| Field | Value |
+|-------|-------|
+| **inherited_path** | `scripts/analyze_efi_cpuid.py` |
+| **new_path** | `tools/efi-audit/extract.py`, `tools/efi-audit/analyze.py`, `tools/efi-audit/patchgen.py`, `tools/efi-audit/validate.py` |
+| **subsystem** | Tools / Firmware Analysis |
+| **decision** | **Keep parsing logic; rewrite structure** |
+| **credibility** | [Inference] — CPUID instruction encoding and PE32+ parsing patterns |
+| **impl_status** | All four tools written. `analyze.py` core pattern-matching logic preserved from old script. `patchgen.py` `mrc-nop-hypothesis` profile exists but generates no patches (MRC call site not yet identified — correct behavior). `validate.py` binary-diff logic complete. |
+| **validation_status** | Not run against any EFI binary. Patterns not validated against iMac12,2 Apple EFI. `pefile` dependency not tested. |
+| **blocker** | Apple EFI binary not yet obtained. Stage 0 must produce the binary before these tools can be validated. `--nop-mrc` profile correctly remains a structural stub. |
+| **next_action** | Obtain Apple EFI binary in Stage 0 (T0.3 acpidump will also reveal EFI volume structure). Run `extract.py` and `analyze.py`. Record how many CPUID references are found and at what offsets. Commit results to `data/` with credibility tags. |
+| **notes** | Original script mixed extraction, analysis, patch generation, and validation in one file. `--nop-mrc` was a reachable flag, not an experiment-gated path. Rewrite correctly separates concerns and places MRC bypass behind `--experiment-gate-confirmed`. The patching pipeline (patchgen → validate → apply) enforces backup-before-patch. |
+
+---
+
+### Row 4 — ACPI SSDT-PMC
+
+| Field | Value |
+|-------|-------|
+| **inherited_path** | `opencore/ACPI/SSDT-PMC.dsl` |
+| **new_path** | `opencore/ACPI/reference/SSDT-PMC-z68-reference.dsl` |
+| **subsystem** | ACPI / OpenCore |
+| **decision** | **Keep with light review** (reference fragment only) |
+| **credibility** | [Inference] — Z68/Cougar Point device topology; not verified against real iMac12,2 DSDT |
+| **impl_status** | File moved to `reference/` subdirectory. Header annotated with verification requirements. PMC device entry left as commented-out Placeholder. SBUS at D31:F3 retained as the primary reference fragment. |
+| **validation_status** | Not verified against actual iMac12,2 DSDT. DSDT dump not yet obtained (Stage 0 task T0.3). |
+| **blocker** | Stage 0 must produce `data/acpi/dsdt-decompiled.dsl`. Must check whether SBUS device already exists in DSDT before applying this SSDT. If it already exists, this SSDT is unnecessary and applying it will create an ACPI conflict. |
+| **next_action** | Complete Stage 0 T0.3. Compare SSDT against real DSDT. Decision outcomes: (a) SBUS missing from DSDT → keep SSDT, mark [Verified]; (b) SBUS present in DSDT → reject SSDT as unnecessary; (c) SBUS present but broken → keep SSDT with modifications, mark [Verified]. |
+| **notes** | Old version had a mistaken `PPMC` device declaration that conflicted with standard Cougar Point ACPI tables. That was removed. The corrected version retains only SBUS at D31:F3, which is the well-documented Z68 SMBus controller placement. Do not promote this from reference to active use until DSDT check is complete. |
+
+---
+
+## Additional Files (Inferred or Discovered)
+
+### Row 5 — OpenCore config.plist
+
+| Field | Value |
+|-------|-------|
+| **inherited_path** | `opencore/config.plist` (inferred present) |
+| **new_path** | — (rejected) |
+| **decision** | **Reject** |
+| **credibility** | [Hypothesis] — likely contains Haswell-E or wrong-family CPUID masks |
+| **impl_status** | Not imported |
+| **next_action** | Build from scratch in Stage 2+ using OpenCore documentation and actual hardware CPUID data from Stage 0. |
+
+---
+
+### Row 6 — MRC Bypass Scripts
+
+| Field | Value |
+|-------|-------|
+| **inherited_path** | Any `mrc_bypass.*` or `--nop-mrc`-wrapping script |
+| **new_path** | `experiments/mrc-nop-hypothesis/` (quarantined) |
+| **decision** | **Quarantine** |
+| **credibility** | [Hypothesis] |
+| **impl_status** | `patchgen.py --profile mrc-nop-hypothesis` exists but generates no patches. Quarantine README documents gate conditions. |
+| **next_action** | Do not advance. MRC call site must be identified by disassembly before this experiment can proceed. |
+
+---
+
+## Ledger Status
+
+| Decision | Count | Notes |
+|----------|-------|-------|
+| Rewrite (complete) | 2 | FPGA RTL split, EFI tools rewrite |
+| Rewrite (partial) | 1 | FPGA modules have structural gaps |
+| Keep with review | 1 | SSDT-PMC reference fragment |
+| Reject | 2 | haswell_e_cpuid.c, config.plist |
+| Quarantine | 1 | MRC bypass |
+
+**Bugs found and fixed during this audit pass:**
+- BUG-01: `spd_responder.v` address match always-false (removed wrong first condition)
+- BUG-02: `msr_audit.c` C89 declaration-after-statement
+- BUG-03: INF files missing `[Includes]` section
+- BUG-04: Dead `bit_idx` register in `spd_responder.v`
+- BUG-05: `smbus_monitor.v` CLK_DIV default 125 → 31 (400 kHz correct default)
+
+**Not yet fixed (require design work, not one-line edits):**
+- `spd_responder.v` SS_SEND_BYTE bit-level SDA output: NON_FUNCTIONAL, correctly labeled
+- `smbus_arbiter.v` clock-stretching: STUB, correctly labeled
+- Missing testbenches: gate condition for Stage 1 unmet
+
+---
+
+*This ledger must be updated when any inherited artifact changes status, when a new bug is found, or when a validation step is completed.*

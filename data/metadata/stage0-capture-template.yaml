@@ -1,0 +1,201 @@
+# Stage 0 Capture Session Metadata Template
+#
+# Class: C (Template / Placeholder)
+# Credibility: Placeholder
+#
+# Usage:
+#   Copy this file to data/metadata/s0-session-YYYYMMDD-01.yaml before
+#   each Stage 0 capture session. Fill in all fields before starting.
+#   A session = one continuous measurement period on the target system.
+#
+# This file records the state of the system and instruments at capture time.
+# It is the required metadata for all Class A artifacts produced in the session.
+# Individual artifact .meta.yaml sidecars reference this file via session_id.
+#
+# Artifact naming: s0{task_code}-{type}-{descriptor}-{YYYYMMDD}-{seq:02d}.{ext}
+# See docs/bringup-artifact-schema.md for full schema.
+
+session:
+  id: "s0-YYYYMMDD-01"          # increment seq if multiple sessions same day
+  date: "YYYY-MM-DD"
+  operator: "PLACEHOLDER"
+  location: "PLACEHOLDER"        # bench ID or location description
+  duration_minutes: null
+  notes: ""
+
+# ─────────────────────────────────────────────────────────────────────────────
+# TARGET SYSTEM
+# ─────────────────────────────────────────────────────────────────────────────
+target_system:
+  model: "iMac12,2"
+  apple_serial: "PLACEHOLDER"    # e.g., C02XXXXXXDH2 — omit if privacy concern
+  board_revision: "PLACEHOLDER"  # silkscreen revision if visible; check near I/O ports
+  bios_version: "PLACEHOLDER"    # from Apple System Information or EFI shell
+  modifications_from_stock: []   # list any modifications; [] if none
+
+cpu:
+  socket: "LGA1155"
+  part_number: "PLACEHOLDER"     # e.g., Core i7-2600
+  family_hex: "PLACEHOLDER"      # from CPUID leaf 0x01 EAX; e.g., "0x06"
+  model_hex: "PLACEHOLDER"       # e.g., "0x2A" for Sandy Bridge
+  stepping_hex: "PLACEHOLDER"    # e.g., "0x07"
+  microcode_rev_hex: "PLACEHOLDER"  # from MSR 0x8B after CPUID leaf 1
+  # Expected: Sandy Bridge = family 0x06 model 0x2A
+  # If different, stop and investigate before continuing.
+
+memory:
+  total_capacity_gb: null
+  configuration: "PLACEHOLDER"   # e.g., "2x8GB dual-channel"
+  slots:
+    A1:
+      populated: null             # true / false
+      part_number: "PLACEHOLDER"
+      capacity_gb: null
+      speed_mhz: null
+      voltage: null               # 1.5 or 1.35
+      spd_captured: false         # updated when s0-spd-dimm_a1 artifact created
+    A2:
+      populated: null
+      part_number: "PLACEHOLDER"
+      capacity_gb: null
+      speed_mhz: null
+      voltage: null
+      spd_captured: false
+    B1:
+      populated: null
+      part_number: "PLACEHOLDER"
+      capacity_gb: null
+      speed_mhz: null
+      voltage: null
+      spd_captured: false
+    B2:
+      populated: null
+      part_number: "PLACEHOLDER"
+      capacity_gb: null
+      speed_mhz: null
+      voltage: null
+      spd_captured: false
+
+os_booted_for_capture:
+  type: "PLACEHOLDER"           # e.g., "Linux live USB", "macOS", "EFI shell"
+  version: "PLACEHOLDER"
+  kernel_or_fw_version: "PLACEHOLDER"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# INSTRUMENTS USED THIS SESSION
+# ─────────────────────────────────────────────────────────────────────────────
+instruments:
+  oscilloscope:
+    used: false
+    make_model: "PLACEHOLDER"
+    bandwidth_mhz: null
+    sample_rate_gsps: null
+    probe_model: "PLACEHOLDER"
+    probe_bandwidth_mhz: null
+    firmware_version: "PLACEHOLDER"
+    calibrated: null            # true / false
+    calibration_date: "PLACEHOLDER"
+
+  logic_analyzer:
+    used: false
+    make_model: "PLACEHOLDER"
+    channel_count: null
+    max_sample_rate_mhz: null
+    firmware_version: "PLACEHOLDER"
+    software_version: "PLACEHOLDER"
+    decode_protocols_enabled: []  # e.g., [I2C, SMBus]
+
+  calipers:
+    used: false
+    make_model: "PLACEHOLDER"
+    resolution_mm: null
+
+  i2c_tools_host:
+    used: false
+    os: "PLACEHOLDER"
+    i2c_tools_version: "PLACEHOLDER"
+    smbus_bus_number: null      # from i2cdetect -l; fill after detection
+
+  efi_tools:
+    cpuid_audit_used: false
+    msr_audit_used: false
+    efi_tool_build_date: "PLACEHOLDER"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# TASK COMPLETION CHECKLIST
+# ─────────────────────────────────────────────────────────────────────────────
+# Update each entry after the corresponding artifact is captured and committed.
+# status values: pending / in-progress / complete / blocked / skipped
+tasks:
+  T0_1_smbus_capture:
+    status: pending
+    artifact: ""                # e.g., data/smbus/s0-smbus-post_capture-20250101-01.vcd
+    notes: ""
+    blocker: ""
+
+  T0_2_cpuid_capture:
+    status: pending
+    artifact: ""
+    notes: ""
+    blocker: ""
+
+  T0_2b_msr_capture:
+    status: pending
+    artifact: ""
+    notes: ""
+    blocker: ""
+
+  T0_3_acpi_dump:
+    status: pending
+    artifacts:
+      dsdt_raw: ""              # data/acpi/dsdt-raw.dat
+      dsdt_decompiled: ""       # data/acpi/dsdt-decompiled.dsl
+    notes: ""
+    blocker: ""
+
+  T0_4_rail_sequencing:
+    status: pending
+    artifact: ""                # data/rails/s0-rail-pwrgood_timing-....csv
+    notes: ""
+    blocker: ""
+
+  T0_5_spd_capture:
+    status: pending
+    artifacts:
+      slot_a1: ""
+      slot_a2: ""
+      slot_b1: ""
+      slot_b2: ""
+    notes: ""
+    blocker: ""
+
+  T0_6_z_clearance:
+    status: pending
+    artifact: ""                # hardware/measurements/socket-z-clearance.md
+    measurement_mm: null        # fill after measurement
+    r001_status: "OPEN"         # OPEN / CLEARED / BLOCKING
+    notes: ""
+
+  T0_7_smbus_edge_rates:
+    status: pending
+    artifact: ""                # data/smbus/s0-smbus-edge_rates-....md
+    scl_rise_time_ns: null
+    scl_fall_time_ns: null
+    sda_rise_time_ns: null
+    sda_fall_time_ns: null
+    bus_frequency_khz: null
+    notes: ""
+
+# ─────────────────────────────────────────────────────────────────────────────
+# STAGE 0 → STAGE 1 GATE ASSESSMENT
+# ─────────────────────────────────────────────────────────────────────────────
+# Fill this section only when all tasks above are complete.
+# A gate_status of "PASS" requires all eight required artifacts to be present,
+# committed, and have .meta.yaml sidecars with credibility: Verified.
+stage_gate:
+  all_artifacts_committed: false
+  r001_cleared: false           # Z-clearance >= 0.3 mm
+  smbus_edge_rate_degradation_pct: null  # must be < 10% after passive tap
+  gate_status: "PENDING"        # PENDING / PASS / BLOCKED
+  gate_date: null
+  gate_notes: ""
