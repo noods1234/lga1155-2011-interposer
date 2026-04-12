@@ -1,0 +1,68 @@
+# Build outputs
+*.o
+*.efi
+*.dll
+*.so
+*.pyc
+__pycache__/
+*.pyo
+
+# FPGA build artifacts
+*.bit
+*.bin.gz
+*.sof
+*.pof
+*.jed
+*.svf
+build/
+obj_dir/
+
+# Synthesis intermediate files
+*.ncd
+*.pcf.bak
+*.rpt
+*.log
+*.xpr
+*.runs/
+*.cache/
+*.hw/
+*.sim/
+*.ip_user_files/
+
+# EFI build tree
+Build/
+Conf/
+
+# Python virtual environments
+.venv/
+venv/
+env/
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+Thumbs.db
+
+# Generated SPD hex file (produced by pipeline; not committed)
+fpga/rtl/spd_rom.hex
+
+# Captured binary data (may be large; commit selectively)
+# Specifically: do NOT gitignore data/ — captured data belongs in the repo.
+# Do gitignore very large binary captures that belong in Git LFS if needed.
+*.vcd.gz
+*.dmp
+
+# Patch intermediates
+sections/
+*.patched.bin
+
+# ACPI compiled output (commit .dsl source, not .aml binary)
+*.aml
+
+# macOS firmware dumps (may contain sensitive/proprietary data — commit consciously)
+*.scap
+efi_dump/
+firmware_dump/
