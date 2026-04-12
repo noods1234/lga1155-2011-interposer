@@ -1,0 +1,40 @@
+pin_id,row,col,signal_name,signal_group,direction,voltage_nominal_v,impedance_target_ohm,interposer_action,credibility,notes
+# LGA 1155 Pin Classification Template
+# Direction: IN=from motherboard to CPU, OUT=from CPU to motherboard, BIDIR=bidirectional, POWER=VCC/GND, NC=no connect
+# Interposer action: PASSTHROUGH=route unmodified, MONITOR=passive tap, GATE=can be held/released, ISOLATE=can be disconnected, UNKNOWN=not yet determined
+# Credibility: Verified, Inference, Hypothesis, Placeholder
+# WARNING: All entries below are PLACEHOLDER until verified against Intel LGA1155 platform documentation and oscilloscope measurement
+# Source for pin numbering: Intel Sandy Bridge Platform Design Guide (not yet confirmed available/accessible — PLACEHOLDER reference)
+#
+# Power domain — representative subset; not exhaustive
+A1,A,1,VSS,POWER,POWER,0.0,,PASSTHROUGH,Placeholder,"Ground — do not interrupt; PLACEHOLDER pin assignment"
+A2,A,2,VCC,POWER,POWER,1.05,,PASSTHROUGH,Placeholder,"CPU core supply — interposer must carry full VCC current; PLACEHOLDER"
+A3,A,3,VSS,POWER,POWER,0.0,,PASSTHROUGH,Placeholder,"Ground; PLACEHOLDER"
+#
+# SMBus — key signals for Stage 0/1
+AA23,AA,23,SMB_CLK,SMBUS,BIDIR,3.3,,,Placeholder,"SMBus clock — primary target for Stage 0 monitor tap; pin assignment PLACEHOLDER — must verify"
+Y22,Y,22,SMB_DAT,SMBUS,BIDIR,3.3,,,Placeholder,"SMBus data — primary target for Stage 0 monitor tap; pin assignment PLACEHOLDER — must verify"
+#
+# Reset and power-good
+AH1,AH,1,PWRGOOD,CONTROL,IN,3.3,,MONITOR,Placeholder,"Platform power-good from PCH to CPU; pin assignment PLACEHOLDER"
+AH2,AH,2,RESET_N,CONTROL,IN,3.3,,MONITOR,Placeholder,"System reset active low; pin assignment PLACEHOLDER"
+AH3,AH,3,THERMTRIP_N,CONTROL,OUT,3.3,,MONITOR,Placeholder,"CPU over-temp trip active low; pin assignment PLACEHOLDER"
+AH4,AH,4,PROCHOT_N,CONTROL,OUT,3.3,,MONITOR,Placeholder,"CPU power throttle active low; pin assignment PLACEHOLDER"
+#
+# DDR3 Channel A — command/address (highly incomplete; PLACEHOLDER)
+B5,B,5,DDR3A_RAS_N,DDR3A_CMD,OUT,1.5,40,PASSTHROUGH,Placeholder,"DDR3 Ch A RAS# — pin assignment PLACEHOLDER — DO NOT MODIFY before Stage 3"
+B6,B,6,DDR3A_CAS_N,DDR3A_CMD,OUT,1.5,40,PASSTHROUGH,Placeholder,"DDR3 Ch A CAS# — pin assignment PLACEHOLDER"
+B7,B,7,DDR3A_WE_N,DDR3A_CMD,OUT,1.5,40,PASSTHROUGH,Placeholder,"DDR3 Ch A WE# — pin assignment PLACEHOLDER"
+B8,B,8,DDR3A_CLK_P,DDR3A_CLK,OUT,1.5,40,PASSTHROUGH,Placeholder,"DDR3 Ch A CLK+ differential — pin assignment PLACEHOLDER"
+B9,B,9,DDR3A_CLK_N,DDR3A_CLK,OUT,1.5,40,PASSTHROUGH,Placeholder,"DDR3 Ch A CLK- differential — pin assignment PLACEHOLDER"
+#
+# PCIe x16 — command/reference (highly incomplete; PLACEHOLDER)
+C1,C,1,PCIE0_TX0_P,PCIE,OUT,,,PASSTHROUGH,Placeholder,"PCIe lane 0 TX+ — PLACEHOLDER"
+C2,C,2,PCIE0_TX0_N,PCIE,OUT,,,PASSTHROUGH,Placeholder,"PCIe lane 0 TX- — PLACEHOLDER"
+#
+# NOTES ON THIS FILE:
+# 1. This template MUST NOT be used to drive FPGA pin assignments until each entry is promoted from Placeholder to Verified.
+# 2. Pin assignments are industry-standard but the exact row/col notation used here is illustrative, not from a confirmed source.
+# 3. To promote an entry: (a) cross-reference Intel Sandy Bridge PDG, (b) confirm with oscilloscope, (c) change credibility field.
+# 4. All DDR3 pins are PASSTHROUGH and must remain so until Stage 3 gate condition is met.
+# 5. The interposer_action field for any signal must be UNKNOWN until Stage 0 characterization is complete.

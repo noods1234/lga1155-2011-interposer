@@ -1,0 +1,44 @@
+rail_name,nominal_v,tolerance_pct,source,load_description,enable_signal,seq_order,t_on_ms_from_s5_exit,t_on_ms_measured,measured_by,rise_time_us_spec,rise_time_us_measured,max_ripple_mv_pp,max_ripple_mv_measured,credibility,notes
+# Power Rail and Sequencing Template — iMac12,2 / Z68 / Sandy Bridge
+# WARNING: All t_on_ms_measured, rise_time_us_measured, max_ripple_mv_measured fields are PLACEHOLDER (0.0) until measured
+# Measuring instrument: oscilloscope with 100 MHz BW minimum recommended for ripple; 1 GHz+ for rise time accuracy
+# Credibility: Verified=oscilloscope measurement, Inference=derived from spec, Hypothesis=guessed, Placeholder=empty
+#
+# Column definitions:
+#   rail_name            — descriptive name
+#   nominal_v            — nominal voltage
+#   tolerance_pct        — allowed tolerance percentage
+#   source               — what generates this rail (PSU, PMIC, VRM, etc.)
+#   load_description     — what this rail powers
+#   enable_signal        — what signal enables this rail (if known)
+#   seq_order            — power sequencing order (lower = earlier; same number = simultaneous)
+#   t_on_ms_from_s5_exit — milliseconds from S5 exit to rail being in-regulation (spec or hypothesis)
+#   t_on_ms_measured     — measured value (PLACEHOLDER = 0.0)
+#   measured_by          — instrument used for measurement
+#   rise_time_us_spec    — 10-90% rise time from spec
+#   rise_time_us_measured— measured (PLACEHOLDER = 0.0)
+#   max_ripple_mv_pp     — maximum peak-to-peak ripple from spec
+#   max_ripple_mv_measured — measured (PLACEHOLDER = 0.0)
+#   credibility          — of the row
+#   notes
+#
+5VSB,5.0,5,PSU_STANDBY,Standby logic; SMBus pull-ups; PCH standby,ALWAYS_ON,0,0.0,0.0,PLACEHOLDER,PLACEHOLDER,0.0,100,0.0,Placeholder,"Always present when AC connected; PLACEHOLDER measurements"
+3VSB,3.3,5,PMIC_STANDBY,PCH standby; EC; RTC,ALWAYS_ON,0,0.0,0.0,PLACEHOLDER,PLACEHOLDER,0.0,50,0.0,Placeholder,"Always present; PLACEHOLDER measurements"
+VCC12,12.0,5,ATX_PSU,VRM input; drive motors; cooling fans,PS_ON_N,1,50.0,0.0,PLACEHOLDER,PLACEHOLDER,0.0,200,0.0,Placeholder,"First rail from PSU after PS_ON; PLACEHOLDER"
+VCC5,5.0,5,ATX_PSU,Drive logic; various ICs,PS_ON_N,1,50.0,0.0,PLACEHOLDER,PLACEHOLDER,0.0,100,0.0,Placeholder,"PLACEHOLDER"
+VCC3P3,3.3,5,ATX_PSU,PCH; SPI flash; DDR3 VTT source,PS_ON_N,1,50.0,0.0,PLACEHOLDER,PLACEHOLDER,0.0,66,0.0,Placeholder,"PLACEHOLDER"
+VDIMM,1.5,3,PMIC_OR_VRM,DDR3 DRAM IOs,VDIMM_EN,2,80.0,0.0,PLACEHOLDER,PLACEHOLDER,0.0,30,0.0,Placeholder,"May be 1.35V on low-voltage DIMMs; PLACEHOLDER"
+VTT,0.75,3,VTT_REG,DDR3 reference (half VDIMM),VDIMM_VALID,3,100.0,0.0,PLACEHOLDER,PLACEHOLDER,0.0,15,0.0,Placeholder,"Must be stable before CPU reset deasserts; PLACEHOLDER"
+VCCPLL,1.8,3,PMIC,CPU PLL supply,VCCPLL_EN,2,70.0,0.0,PLACEHOLDER,PLACEHOLDER,0.0,20,0.0,Placeholder,"PLACEHOLDER — name may differ on this board"
+VCCA,1.05,3,PMIC,CPU analog (ring/uncore),VCCA_EN,2,70.0,0.0,PLACEHOLDER,PLACEHOLDER,0.0,15,0.0,Placeholder,"PLACEHOLDER"
+VCORE,0.8-1.35,5,CPU_VRM,CPU core (VID-controlled via SVID),PWRGOOD_VRM,4,120.0,0.0,PLACEHOLDER,PLACEHOLDER,0.0,10,0.0,Placeholder,"SVID bus sets VID; actual voltage depends on CPU P-state; PLACEHOLDER"
+PWRGOOD_ASSERT,3.3,,PCH_LOGIC,Platform power-good signal asserted by PCH to CPU,ALL_RAILS_STABLE,5,150.0,0.0,PLACEHOLDER,PLACEHOLDER,PLACEHOLDER,PLACEHOLDER,0.0,Placeholder,"PWRGOOD must be asserted only after all rails are in regulation; precise timing is critical; PLACEHOLDER"
+#
+# NOTES:
+# 1. Sequencing order (seq_order) is an inference from Intel Z68 Platform Design Guide and Sandy Bridge EDS.
+#    It MUST be verified by oscilloscope measurement before any power rail perturbation experiment.
+# 2. The VCORE range (0.8–1.35 V) depends on CPU VID. Do not probe VCORE with a low-bandwidth probe.
+# 3. VTT must not be powered before VDIMM. Reversing this sequence can damage DDR3 ICs.
+# 4. PWRGOOD timing is critical: asserting PWRGOOD before all rails are stable may cause undefined CPU behavior.
+# 5. All PLACEHOLDER values (0.0) MUST be replaced with measurements before any Stage 1 perturbation experiment.
+# 6. Add rows for any additional rails discovered during board inspection.
