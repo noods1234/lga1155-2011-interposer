@@ -17,8 +17,13 @@
 | Impact | 5 |
 | Score | 20 — CRITICAL |
 | Status | Open |
+| Owner | — |
 | Description | The LGA 1155 socket has a defined CPU package seating height. Any interposer PCB plus two sets of contact pads must fit within the socket's designed Z-tolerance (estimated < 0.5 mm total PCB stack). Standard PCB fabrication minimum thickness is 0.4 mm (0.2 mm achievable at premium cost). A two-PCB stack (interposer body + re-routing layer) may exceed available clearance, causing CPU lid or IHS contact failure. |
-| Evidence | [Hypothesis] — no physical measurement performed. No confirmed clearance data found. |
+| Truth label | [Hypothesis] — risk magnitude unconfirmed until caliper measurement taken |
+| Current evidence | No measurement. Stage 0 T0.6 caliper measurement not yet performed. Three-tier gate defined in experiments/stage0-native-sniff/README.md: ≥0.5 mm (standard FR4 viable), 0.3–0.5 mm (thin PCB path), <0.3 mm (R-001 BLOCKING). |
+| Unknowns | Actual socket Z-clearance on this specific iMac unit; whether thin-PCB suppliers (0.1–0.15 mm) can maintain controlled impedance; whether flex-PCB approach is electrically viable for SMBus signal integrity. |
+| Validation method | Stage 0 T0.6: caliper measurement at three socket corners. Record in hardware/measurements/socket-z-clearance.md with photo. |
+| Exit criteria | Measurement ≥ 0.3 mm with documented caliper reading → R-001 downgraded to High; PCB path selected based on tier. Measurement < 0.3 mm → R-001 remains BLOCKING until flex or wire-wrap pivot is evaluated. |
 | Mitigation | 1. Measure actual LGA socket Z-clearance with calipers before designing PCB. 2. Investigate ultra-thin PCB fabricators (0.1–0.15 mm). 3. Consider flex-PCB interposer. 4. If infeasible, pivot to socket-level signal tap (wire-wrap on socket pins) for passive observation only. |
 | Gate | Must be resolved before any PCB fabrication order. |
 
@@ -33,8 +38,13 @@
 | Impact | 5 |
 | Score | 20 — CRITICAL |
 | Status | Open |
+| Owner | — |
 | Description | DDR3-1333 operates at 667 MHz data rate. Every millimeter of trace added by the interposer changes propagation delay and may introduce impedance discontinuities. DDR3 uses source-synchronous clocking with tight timing margins (~100–200 ps). An interposer with uncalibrated trace lengths will almost certainly cause DDR3 training failure. |
-| Evidence | [Inference] from DDR3 electrical specification and known SI problems in any PCB rework. |
+| Truth label | [Inference] — DDR3 timing margins documented in spec; interposer trace impact is estimated, not simulated |
+| Current evidence | DDR3-1333 tCK = 1500 ps; PCB trace propagation ≈ 6 ps/mm at FR4 (Dk ≈ 4.2). Stage 0 T0.7 will measure SMBus edge rates; Stage 1 will remeasure with passive tap in place. DDR3 path not entered until Stage 3+. |
+| Unknowns | Required trace routing distance through final interposer design; PCB Dk at 667 MHz; whether passive monitoring (SMBus only) requires any DDR3 routing at all; whether active re-timing via FPGA is feasible at DDR3 data rates. |
+| Validation method | For SMBus path (Stages 0–2): oscilloscope edge rate comparison before and after passive tap insertion. For DDR3 path (Stage 3+): SI simulation (IBIS-AMI or equivalent) before PCB fabrication. |
+| Exit criteria | Stage 1 SMBus edge rate degradation < 10% vs. Stage 0 baseline → R-002 downgraded for SMBus path. DDR3 path requires: controlled-impedance PCB spec, simulation showing < 20 ps added skew, and explicit Stage 3 gate review. |
 | Mitigation | 1. Stage 0–1 experiments avoid DDR3 signal routing entirely. 2. If DDR3 interposition is required, use controlled-impedance PCB (50 Ω stripline), match trace lengths to within 5 mm, and plan for BIOS MRC re-training. 3. Consider that DDR3 interposition may require FPGA-based re-driving (active re-timing), which is a major additional complexity. |
 | Gate | Do not route DDR3 signals through interposer without controlled-impedance PCB and DDR3 simulation. |
 
@@ -49,9 +59,14 @@
 | Impact | 5 |
 | Score | 20 — CRITICAL |
 | Status | Open |
+| Owner | — |
 | Description | Memory Reference Code (MRC) is closed-source firmware embedded in the platform BIOS. It trains DDR3 channels, sets up the memory controller, and must complete before any DRAM is usable. Any modification to SPD data, DDR3 timing, or CPU identity that MRC does not expect will result in training failure. Failure modes range from silent hang to DRAM bus contention, which could damage hardware. |
-| Evidence | [Verified] — MRC failure is a known failure mode in Sandy Bridge platform bring-up. |
-| Mitigation | 1. Never use `--nop-mrc` (or any equivalent MRC bypass) as a default. It is a diagnostic experiment only and must be gated behind a physical jumper or explicit experiment flag. 2. Before injecting synthetic SPD, validate that the synthetic SPD is accepted by MRC in an isolated test (e.g., via SPD EEPROM swap, not interposer). 3. Have a recovery path: CMOS clear, known-good DIMM. |
+| Truth label | [Verified] for failure mode class; [Hypothesis] for Apple iMac12,2 MRC-specific behavior |
+| Current evidence | MRC failure on Sandy Bridge is well-documented in coreboot/Libreboot community. iMac12,2 MRC is closed-source; no behavioral data captured yet. Stage 0 T0.1 SMBus capture will reveal which SPD byte addresses MRC reads and in what order during POST. |
+| Unknowns | Whether Apple MRC enforces strict SPD CRC; which SPD bytes MRC actually reads vs. ignores; whether MRC fingerprints SPD manufacturer bytes; recovery behavior if MRC fails (does it retry, hang, or fall back to safe mode?). |
+| Validation method | Stage 0 T0.1: annotate SMBus capture to identify all MRC SPD reads. Stage 0 T0.3: acpidump to get EFI volume for static analysis of MRC entry point. Cross-reference with Intel MRC documentation. |
+| Exit criteria | Stage 0 SMBus capture committed with MRC SPD access sequence annotated. Every byte address that MRC reads must be identified before any SPD injection experiment is approved. |
+| Mitigation | 1. Never use `--profile mrc-nop-hypothesis` as a default. It is a diagnostic experiment only and must be gated behind a physical jumper or explicit experiment flag. 2. Before injecting synthetic SPD, validate that the synthetic SPD is accepted by MRC in an isolated test (e.g., via SPD EEPROM swap, not interposer). 3. Have a recovery path: CMOS clear, known-good DIMM. |
 | Gate | MRC behavior must be characterized in Stage 0 before any SPD injection experiment. |
 
 ---
