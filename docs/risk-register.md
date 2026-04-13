@@ -82,8 +82,13 @@
 | Impact | 5 |
 | Score | 15 — CRITICAL (borderline) |
 | Status | Open |
+| Owner | — |
 | Description | Monitoring DDR3 signals in real-time requires the FPGA to sample at DDR3 clock edge rate (≥667 MHz). Most low-cost FPGAs (e.g., Lattice iCE40, Xilinx Spartan-6) cannot close timing at these rates without careful pipelining and I/O register placement. The DDR3 capture path, if implemented, will require careful constraint-driven synthesis. |
-| Evidence | [Inference] from FPGA data sheet typical I/O specifications. |
+| Truth label | [Inference] — based on FPGA datasheet I/O specs; no synthesis attempted yet |
+| Current evidence | Stages 0–2 need only SMBus monitoring at ≤400 kHz — well within any modern FPGA I/O capability. DDR3 capture is Stage 3+. No FPGA selected for Stage 3 yet. fpga/rtl modules are currently targeting a generic Xilinx/Lattice device with 50 MHz system clock. |
+| Unknowns | Whether DDR3 passive monitoring is needed at all (SMBus-only interposer may suffice); target FPGA for Stage 3; whether SERDES-based sampling is feasible or if a dedicated logic analyzer IC is a better approach. |
+| Validation method | Stage 2: synthesize SMBus logic and verify timing closure. Stage 3 FPGA study: evaluate SERDES-capable parts (Xilinx Artix-7, Lattice ECP5) against DDR3 sample-rate requirements when Stage 2 is complete. |
+| Exit criteria | Stage 2: synthesis timing report shows all paths closed at ≥ 50 MHz. Stage 3: FPGA chosen and I/O timing simulation shows DDR3 sample window ≥ 100 ps. |
 | Mitigation | 1. Stages 0–2 only require SMBus monitoring (≤400 kHz). Use cheap FPGA with generous timing margin. 2. DDR3 capture is Stage 3+. Re-evaluate FPGA choice when Stage 3 begins. 3. Consider dedicated DDR3 capture ASIC or SERDES-capable FPGA for Stage 3. |
 | Gate | FPGA selection for Stages 0–2 may proceed. DDR3 capture FPGA selection is deferred. |
 
@@ -98,9 +103,14 @@
 | Impact | 4 |
 | Score | 12 — High |
 | Status | Open |
+| Owner | — |
 | Description | Apple's EFI (not standard UEFI) may perform additional platform validation checks including MSR reads, CPUID extended leaves, power management capability checks, or TDP comparisons. If any check fails, EFI may halt with an undefined error or silently disable features. The full set of Apple EFI platform checks is unknown. |
-| Evidence | [Hypothesis] based on Apple's history of tight platform locking and known issues with iMac CPU upgrades. |
-| Mitigation | 1. Capture a full CPUID dump from the stock Sandy Bridge CPU before any experiment (tools/efi-audit). 2. Compare against Ivy Bridge CPUID dump from a known-good Ivy Bridge system. 3. If Apple EFI checks specific MSR values, those must be identified via EFI binary analysis. 4. OpenCore CPUID masking is a software mitigation only; it does not help at the hardware bring-up stage. |
+| Truth label | [Hypothesis] — inferred from Apple platform history; no iMac12,2 EFI binary analysis performed |
+| Current evidence | efi/src/cpuid_audit.c and msr_audit.c written (20 MSRs, Sandy Bridge filter). Not compiled on target. Apple EFI binary not yet obtained — requires Stage 0 T0.3 acpidump. tools/efi-audit/analyze.py implemented and ready to scan CPUID instruction references once binary is available. |
+| Unknowns | Whether EFI_MP_SERVICES_PROTOCOL is available in Apple EFI; which MSRs Apple EFI reads; whether Apple EFI uses CPUID leaf 0x11 (topology) or extended leaves that differ between Sandy Bridge and Ivy Bridge; TDP register checks. |
+| Validation method | Stage 0 T0.2: run CpuidAudit.efi and MsrAudit.efi on iMac12,2. T0.3: acpidump to extract EFI volume. Run tools/efi-audit/analyze.py to enumerate CPUID instruction references with offsets. |
+| Exit criteria | cpuid_audit.json and msr_audit.txt committed with credibility: Verified. EFI binary analyzed; CPUID reference table committed to data/. Baseline established before any CPU swap experiment. |
+| Mitigation | 1. Capture a full CPUID dump from the stock Sandy Bridge CPU before any experiment. 2. Compare against Ivy Bridge CPUID dump from a known-good Ivy Bridge system. 3. If Apple EFI checks specific MSR values, those must be identified via EFI binary analysis. 4. OpenCore CPUID masking is a software mitigation only; it does not help at the hardware bring-up stage. |
 | Gate | CPUID capture is a Stage 0 deliverable. |
 
 ---
@@ -114,8 +124,13 @@
 | Impact | 4 |
 | Score | 12 — High |
 | Status | Open |
+| Owner | — |
 | Description | LGA 1155 socket pins are delicate spring contacts. Inserting a non-standard PCB interposer risks bending or breaking socket pins. The iMac motherboard is non-replaceable in practice (not commonly available as spare part). |
-| Evidence | [Verified] — LGA socket pin damage is a known risk in any LGA socket work. |
+| Truth label | [Verified] — LGA socket pin fragility is general knowledge; iMac motherboard spares availability is [Hypothesis] |
+| Current evidence | No interposer insertion practice performed. No spare socket or motherboard confirmed available. Stage 0 Z-clearance measurement (T0.6) pending — result directly informs interposer edge geometry. |
+| Unknowns | Availability and cost of iMac12,2 spare logic boards; whether chamfered edge geometry is sufficient or if a guide frame is needed; how many practice insertions are required to establish consistent technique. |
+| Validation method | Acquire a sacrificial LGA1155 socket or donor board. Perform ≥5 insertion/extraction cycles with a dummy PCB of the same outer dimensions as the planned interposer. Document insertion force and pin condition after each cycle. |
+| Exit criteria | ≥5 successful insertions on sacrificial socket with no bent pins. Spare motherboard or socket identified and sourced before any live iMac insertion attempt. |
 | Mitigation | 1. Practice interposer insertion on a sacrificial LGA 1155 socket before touching the iMac. 2. Design interposer with chamfered edges and smooth contact pads. 3. Never force the interposer; if it requires more than finger pressure, stop and investigate. 4. Maintain a working iMac backup or spare motherboard. |
 | Gate | Insertion practice required before any live system experiment. |
 
@@ -130,8 +145,13 @@
 | Impact | 3 |
 | Score | 9 — High |
 | Status | Open |
+| Owner | — |
 | Description | Adding a passive FPGA SMBus tap introduces capacitive load on the SMBus. SMBus specifies maximum bus capacitance. Exceeding it causes slow edge rates and transaction errors. If the FPGA input impedance is insufficient or the tap trace is too long, it will interfere with SPD reads and may cause POST hangs. |
-| Evidence | [Inference] from SMBus specification (max 400 pF bus capacitance). |
+| Truth label | [Inference] — SMBus capacitance spec is documented; actual impact depends on iMac PCH pull-up values (unknown) |
+| Current evidence | SMBus spec: max 400 pF bus capacitance, pull-up typically 2.2–10 kΩ. Stage 0 T0.7 will establish baseline edge rates (SCL/SDA 10–90% rise/fall). Stage 1 T1.2 will remeasure with passive tap installed. Degradation gate: <10% increase in rise/fall time. |
+| Unknowns | Actual iMac12,2 SMBus pull-up resistor values; FPGA GPIO input capacitance for the chosen part; tap trace length in the final interposer layout. |
+| Validation method | Oscilloscope comparison: stock system edge rates (Stage 0 T0.7) vs. passive tap installed (Stage 1). Measure SCL and SDA 10–90% rise time and fall time. Gate: degradation must be <10%. |
+| Exit criteria | Stage 1 smbus edge rates artifact committed with measured rise/fall times ≤ 110% of Stage 0 baseline. No new transaction errors in boot log. |
 | Mitigation | 1. Keep tap trace short (< 10 mm). 2. Use high-impedance FPGA input with no bus driving in monitor-only mode. 3. Measure SMBus edge rates with oscilloscope on stock system before interposer; measure again after passive tap insertion to confirm no degradation. |
 | Gate | Must verify non-degradation of SMBus edge rates after passive tap. |
 
