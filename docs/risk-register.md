@@ -168,7 +168,13 @@
 | Impact | 2 |
 | Score | 6 — Medium |
 | Status | Open |
+| Owner | — |
 | Description | Even if MRC accepts synthetic SPD, the resulting timing parameters may cause intermittent DRAM errors under load. This is hard to detect without a memory stress test. |
+| Truth label | [Inference] — known failure mode for incorrect SPD timing; iMac12,2 MRC tolerance is [Hypothesis] |
+| Current evidence | validate_spd.py now treats all-zero timing bytes as a hard error (fixed in adversarial review). generate_spd.py correctly encodes CL9/DDR3-1333 tAAmin as 0x6C. Remaining timing bytes (17-29) are still zeroed in default config and require Stage 0 capture to populate. |
+| Unknowns | Whether Apple MRC is more or less tolerant of timing margining than standard Intel MRC; whether iMac12,2 uses any non-standard DDR3 timing profiles; exact timing requirements for the installed DIMM model. |
+| Validation method | After any SPD injection: memtest86+ (or equivalent) ≥ 2 full passes. Cross-check generated SPD byte-for-byte against Stage 0 captured SPD from the same DIMM. |
+| Exit criteria | memtest86+ passes 2 full passes with 0 errors after any SPD injection experiment. Generated SPD timing fields match or are more conservative than the captured DIMM SPD. |
 | Mitigation | 1. Use SPD values from a validated DDR3 module as the baseline. 2. Run memtest86+ after any SPD injection experiment. 3. Never modify SPD timing values in a speculative direction; only use values confirmed by JEDEC spec for the installed DRAM. |
 
 ---
@@ -182,7 +188,13 @@
 | Impact | 3 |
 | Score | 6 — Medium |
 | Status | Open |
+| Owner | — |
 | Description | SRAM-based FPGAs (most low-cost parts) lose their configuration on power removal. If the interposer FPGA is not configured before the host system powers its SMBus, the FPGA will briefly present undefined states on SMBus, potentially corrupting SPD reads. |
+| Truth label | [Inference] — SRAM FPGA behavior is well-known; iMac PCH SMBus enable timing relative to 3.3V standby is [Hypothesis] |
+| Current evidence | No interposer PCB designed yet. iMac12,2 PCH (Cougar Point Z68) SMBus is enabled during S5 standby for WOL and wake events — timing to first SMBus access at power-on is unknown. Stage 0 T0.1 SMBus capture may reveal when the first PCH SMBus transaction occurs after AC power-on. |
+| Unknowns | Exact timing from AC power-on to first PCH SMBus transaction; whether 3.3V standby powers the SMBus pull-ups before main power rails; FPGA configuration time from SPI flash (typically 10–100 ms depending on bitstream size). |
+| Validation method | Scope 3.3V standby rail and SMBus SCL simultaneously during iMac power-on. Measure time from 3.3VSB stable to first SMBus clock edge. Compare against FPGA SPI configuration time for chosen part. |
+| Exit criteria | Interposer schematic includes SPI flash for auto-boot configuration and hardware pass-through mux (FPGA drives mux control; default = pass-through). Confirmed in simulation or bench test that FPGA completes configuration before first SMBus access. |
 | Mitigation | 1. Add a dedicated SPI flash for FPGA configuration. 2. Power-sequence the FPGA before the SMBus is pulled up by the PCH. 3. Design the interposer to pass SMBus through transparently until FPGA is fully configured (pass-through default via hardware mux). |
 
 ---
@@ -195,11 +207,15 @@
 | Likelihood | 4 |
 | Impact | 2 |
 | Score | 8 — High |
-| Status | Open |
+| Status | Mitigated |
+| Owner | — |
 | Description | The old branch (apple-set-os fork) contained code and documentation derived from non-hardware sources. Some files encoded assumptions about pin assignments, CPUID values, or boot behavior that were speculative or incorrect. Carrying over this code without review would propagate wrong assumptions. |
-| Evidence | [Verified] — Salvage audit performed; see docs/salvage-audit.md. |
-| Mitigation | All inherited files reviewed and classified. No file carried over without explicit keep/rewrite decision. All Placeholder values marked INVALID inline. |
-| Status | Mitigated by salvage audit. Monitor for new instances. |
+| Truth label | [Verified] — salvage audit performed and documented |
+| Current evidence | Salvage audit complete (docs/salvage-audit.md, ledger v2). 16 bugs found and fixed in adversarial review pass (BUG-01–BUG-09, PY-2–PY-12). All 6 inherited file families classified: 2 rewrite-complete, 1 rewrite-partial, 1 keep-with-review, 2 reject, 1 quarantine. All Placeholder values are marked inline. |
+| Unknowns | Whether ACPI reference fragment (SSDT-PMC-z68-reference.dsl) has additional issues not visible without real DSDT. Whether any unreviewed assumptions remain in EFI tool patterns. |
+| Validation method | At each stage gate: re-run adversarial review on any files added or modified since last review. Monitor for new files from old branch lineage. Update salvage-audit.md when any artifact changes status. |
+| Exit criteria | Salvage audit ledger shows no Reject/Unknown rows and no open BUG entries. All files have explicit, current credibility labels. Status: Mitigated — remains open for monitoring. |
+| Mitigation | All inherited files reviewed and classified. No file carried over without explicit keep/rewrite decision. All Placeholder values marked inline. Adversarial review conducted; 16 bugs fixed. |
 
 ---
 
