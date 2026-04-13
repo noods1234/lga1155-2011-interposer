@@ -109,7 +109,8 @@ module spd_responder #(
     localparam SS_IDLE      = 3'd0;
     localparam SS_RECV_PTR  = 3'd1;  // waiting for byte pointer (write transaction)
     localparam SS_SEND_BYTE = 3'd2;  // sending ROM bytes (read transaction)
-    localparam SS_WAIT_ACK  = 3'd3;  // waiting for master ACK after each sent byte
+    localparam SS_WAIT_ACK  = 3'd3;  // DEAD CODE — declared but never entered.
+                                      // ACK detection uses mon_got_ack_i in SS_SEND_BYTE.
 
     reg [2:0]  ss_state;
     reg [7:0]  byte_ptr;
@@ -141,6 +142,9 @@ module spd_responder #(
                 inject_sda_o<= 1'b1;
                 active_o    <= 1'b0;
                 tx_active   <= 1'b0;
+                byte_ptr    <= 8'h00;   // reset on STOP; NOT reset on START
+                                        // (repeated START must preserve byte_ptr
+                                        //  per I2C write-then-read protocol)
             end else begin
                 case (ss_state)
                     SS_IDLE: begin
@@ -169,8 +173,10 @@ module spd_responder #(
                     end
 
                     SS_RECV_PTR: begin
-                        // Receive byte pointer from master
-                        if (mon_byte_valid_i && !mon_is_addr_i) begin
+                        // Receive byte pointer from master.
+                        // Only latch if the bus ACKed the byte — prevents latching
+                        // pointer bytes from transactions addressed to other devices.
+                        if (mon_byte_valid_i && !mon_is_addr_i && mon_got_ack_i) begin
                             byte_ptr <= mon_byte_data_i;
                             ss_state <= SS_IDLE; // Will get repeated START + Read next
                         end

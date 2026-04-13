@@ -10,7 +10,7 @@
 //   stretching), allowing the FPGA to inspect or substitute a response.
 //
 // WARNING — HARDWARE RISK:
-//   This module drives smb_scl_o and smb_sda_o. Connecting it to a live SMBus
+//   This module drives sl_scl_o, sl_sda_o, and ms_sda_o. Connecting it to a live SMBus
 //   while FPGA configuration is incomplete will place undefined logic levels on
 //   the bus. This MUST be protected by an upstream hardware mux that defaults
 //   to direct pass-through until the FPGA is fully configured and this module
@@ -25,7 +25,10 @@
 // Ports:
 //   Master side (from PCH / SMBus master):
 //     ms_scl_i, ms_sda_i      — inputs from master
-//     ms_scl_o, ms_sda_o      — outputs toward master (for SDA responses from slave)
+//     ms_sda_o                — SDA output toward master (slave ACK / injected data)
+//     NOTE: There is no ms_scl_o. SCL is master-driven; the FPGA does not
+//     drive SCL back toward the master. Clock stretching (pulling SCL low
+//     toward the slave) is a future capability via sl_scl_o.
 //   Slave side (toward DIMM SPD EEPROMs):
 //     sl_scl_o, sl_sda_o      — outputs toward slave
 //     sl_sda_i                — SDA input from slave (slave response)
