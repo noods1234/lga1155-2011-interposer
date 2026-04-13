@@ -72,7 +72,7 @@
 | **credibility** | [Inference] — CPUID instruction encoding and PE32+ parsing patterns |
 | **impl_status** | All four tools written. `analyze.py` core pattern-matching logic preserved from old script. `patchgen.py` `mrc-nop-hypothesis` profile exists but generates no patches (MRC call site not yet identified — correct behavior). `validate.py` binary-diff logic complete. |
 | **validation_status** | Not run against any EFI binary. Patterns not validated against iMac12,2 Apple EFI. `pefile` dependency not tested. |
-| **blocker** | Apple EFI binary not yet obtained. Stage 0 must produce the binary before these tools can be validated. `--nop-mrc` profile correctly remains a structural stub. |
+| **blocker** | Apple EFI binary not yet obtained. Stage 0 must produce the binary before these tools can be validated. `--profile mrc-nop-hypothesis` correctly generates no patches (MRC call site not yet identified). |
 | **next_action** | Obtain Apple EFI binary in Stage 0 (T0.3 acpidump will also reveal EFI volume structure). Run `extract.py` and `analyze.py`. Record how many CPUID references are found and at what offsets. Commit results to `data/` with credibility tags. |
 | **notes** | Original script mixed extraction, analysis, patch generation, and validation in one file. `--nop-mrc` was a reachable flag, not an experiment-gated path. Rewrite correctly separates concerns and places MRC bypass behind `--experiment-gate-confirmed`. The patching pipeline (patchgen → validate → apply) enforces backup-before-patch. |
 

@@ -31,7 +31,7 @@ JEDEC references:
 
 Usage:
     python3 generate_spd.py --config <spd_config.json> --output <out.bin>
-    python3 generate_spd.py --from-capture <captured.bin> --output <annotated.bin>
+    python3 generate_spd.py --dump-default-config    # print placeholder config and exit
     python3 generate_spd.py --help
 
 Requirements:
@@ -181,8 +181,9 @@ def build_spd_from_config(config: dict) -> bytes:
     """
     spd = bytearray(SPD_SIZE)
 
-    # Byte 0: 0x92 = 256 bytes used, 256 bytes total
-    spd[SPD_BYTES_USED_TOTAL] = 0x92
+    # Byte 0: bits [6:4] = bytes total (001 = 256), bits [3:0] = bytes used (0011 = 256)
+    # → 0b0_001_0011 = 0x13   (was 0x92, which encoded an invalid/reserved combination)
+    spd[SPD_BYTES_USED_TOTAL] = 0x13
 
     # Byte 1: SPD revision 1.0
     spd[SPD_REVISION] = 0x10
@@ -206,16 +207,22 @@ def build_spd_from_config(config: dict) -> bytes:
     spd[SPD_DENSITY_BANKS] = 0x15  # PLACEHOLDER
 
     # Byte 5: Addressing [Placeholder — 15 row bits, 10 column bits]
-    spd[SPD_ADDRESSING] = 0x19  # PLACEHOLDER
+    # bits [5:3]: row address bits (010 = 15 rows)
+    # bits [2:0]: col address bits (000 = 10 cols)
+    # → 0b00_010_000 = 0x10   (was 0x19 = reserved 16 rows + 11 cols, wrong)
+    spd[SPD_ADDRESSING] = 0x10  # PLACEHOLDER
 
     # Byte 6: Voltage
     spd[SPD_VOLTAGE] = VOLTAGE_150 if config.get("voltage", 1.5) >= 1.5 else VOLTAGE_135
 
     # Byte 7: Organization (ranks, SDRAM width)
-    # Bits [5:3]: number of package ranks per DIMM (001 = 2 ranks)
-    # Bits [2:0]: SDRAM device width (011 = x8)
-    ranks_enc = {1: 0b000, 2: 0b001, 4: 0b011}
-    width_enc = {4: 0b000, 8: 0b011, 16: 0b100}
+    # Bits [5:3]: number of package ranks per DIMM
+    #   000=1 rank, 001=2 ranks, 010=4 ranks  (per JEDEC 21C Table 7)
+    # Bits [2:0]: SDRAM device width
+    #   000=x4, 001=x8, 010=x16              (per JEDEC 21C Table 7)
+    # Previous encodings were wrong: ranks[4]=0b011 and width[8]=0b011 (32-bit device).
+    ranks_enc = {1: 0b000, 2: 0b001, 4: 0b010}
+    width_enc = {4: 0b000, 8: 0b001, 16: 0b010}
     r = ranks_enc.get(config.get("ranks", 2), 0b001)
     w = width_enc.get(config.get("sdram_width", 8), 0b011)
     spd[SPD_ORGANIZATION] = (r << 3) | w
@@ -238,8 +245,9 @@ def build_spd_from_config(config: dict) -> bytes:
     spd[SPD_CAS_LAT_LOW]  = 0xFE  # CL 7-14 supported [Placeholder]
     spd[SPD_CAS_LAT_HIGH] = 0x00
 
-    # Byte 16: tAAmin [Placeholder — CL9 at DDR3-1333 = 13500 ps = 108 MTB]
-    spd[SPD_TAAMIN] = 0x69  # 105 MTB × 125 ps = 13125 ps ≈ CL9 [Placeholder]
+    # Byte 16: tAAmin [Placeholder — CL9 at DDR3-1333 = 13500 ps = 108 MTB = 0x6C]
+    spd[SPD_TAAMIN] = 0x6C  # 108 MTB × 125 ps = 13500 ps = CL9 at 1333 MHz [Placeholder]
+                             # (was 0x69 = 13125 ps, which contradicted the comment)
 
     # Remaining timing bytes [Placeholder — all zeros until replaced with real data]
     # tWRmin, tRCDmin, tRRDmin, tRPmin, tRAS, tRC, tRFC, tWTR, tRTP, tFAW

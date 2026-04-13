@@ -190,7 +190,7 @@ tasks:
 # STAGE 0 → STAGE 1 GATE ASSESSMENT
 # ─────────────────────────────────────────────────────────────────────────────
 # Fill this section only when all tasks above are complete.
-# A gate_status of "PASS" requires all eight required artifacts to be present,
+# A gate_status of "PASS" requires all nine required artifacts to be present,
 # committed, and have .meta.yaml sidecars with credibility: Verified.
 stage_gate:
   all_artifacts_committed: false

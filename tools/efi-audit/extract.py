@@ -72,11 +72,31 @@ def extract_sections(pe_path: Path, outdir: Path) -> list[dict]:
     pe       = pefile.PE(str(pe_path))
     manifest = []
 
+    seen_names: dict[str, str] = {}  # safe_name → original section name
+
     for s in pe.sections:
-        name     = s.Name.rstrip(b"\x00").decode("ascii", errors="replace")
+        name      = s.Name.rstrip(b"\x00").decode("ascii", errors="replace")
         safe_name = name.lstrip(".").replace("/", "_").replace("\\", "_") or "unnamed"
-        outfile  = outdir / f"{safe_name}.bin"
-        data     = s.get_data()
+
+        # Detect output filename collisions caused by stripping leading dots.
+        # e.g. ".text" and "..text" both map to "text.bin". Disambiguate by
+        # appending an index rather than silently overwriting the first section.
+        if safe_name in seen_names:
+            idx = 2
+            candidate = f"{safe_name}_{idx}"
+            while candidate in seen_names:
+                idx += 1
+                candidate = f"{safe_name}_{idx}"
+            print(
+                f"  WARNING: section {name!r} collides with {seen_names[safe_name]!r} "
+                f"after name sanitisation; renaming output to {candidate}.bin",
+                file=sys.stderr,
+            )
+            safe_name = candidate
+        seen_names[safe_name] = name
+
+        outfile = outdir / f"{safe_name}.bin"
+        data    = s.get_data()
         outfile.write_bytes(data)
         manifest.append({
             "name":    name,

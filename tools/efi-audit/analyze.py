@@ -159,7 +159,7 @@ def scan_binary(data: bytes) -> list[CpuidMatch]:
     return matches
 
 
-def deduplicate(matches: list[CpuidMatch], window: int = 4) -> list[CpuidMatch]:
+def deduplicate(matches: list[CpuidMatch], window: int = 8) -> list[CpuidMatch]:
     """
     Remove duplicate matches within `window` bytes of each other.
     Prefer higher-confidence matches when deduplicating.

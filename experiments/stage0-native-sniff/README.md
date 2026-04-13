@@ -235,7 +235,7 @@ time_ms,v_12v,v_vdimm,v_vcore,v_pwrgood
 Time zero = 12 V rising edge. Sample rate: ≥ 100 kSa/s (1 ms resolution minimum).
 
 **Critical measurement**: Δt(VDIMM stable → PWRGOOD asserts). Must be positive.
-Record raw value in session YAML `stage_gate.smbus_edge_rate_degradation_pct`
+Record raw value in the artifact `.meta.yaml` sidecar notes field
 and in the `.meta.yaml` notes field.
 
 ---

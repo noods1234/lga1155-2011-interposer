@@ -182,14 +182,15 @@ def main() -> int:
             file=sys.stderr,
         )
 
+    results = None
     try:
         results = validate_patches(binary, patch_list)
         print(f"Validation: PASS ({len(results)} checks)", file=sys.stderr)
     except ValidationError as e:
         print(f"\nValidation: FAIL\n{e}", file=sys.stderr)
-        if args.results:
-            # Still write results even on failure
-            pass
+        if args.results and results is not None:
+            Path(args.results).write_text(json.dumps(results, indent=2))
+            print(f"Partial results written to: {args.results}", file=sys.stderr)
         return 1
 
     if args.results:

@@ -35,7 +35,7 @@ EXPERIMENT GATES:
         intend to observe the failure mode.
 
 Usage:
-    python3 patchgen.py --analysis <report.json> --profile cpuid-audit-nop
+    python3 patchgen.py --analysis <report.json> --profile cpuid-log-only
     python3 patchgen.py --analysis <report.json> --profile mrc-nop-hypothesis \
         --experiment-gate-confirmed
     python3 patchgen.py --list-profiles
@@ -94,14 +94,22 @@ def generate_cpuid_log_patches(analysis: dict) -> list[dict]:
     reference. These are for use with a hardware debugger only.
     """
     patches = []
+    cpuid_opcode = bytes([0x0F, 0xA2])
     for match in analysis.get("matches", []):
         if match["confidence"] == "high":
-            offset      = match["offset_dec"]
-            orig_bytes  = bytes.fromhex(match["match_hex"])
-            # Replace first 2 bytes with INT3, INT3 — for debugger trap
-            # NOTE: This is destructive. Only use with debugger attached.
-            # [Hypothesis — not validated]
-            patch_bytes = bytes([0xCC, 0xCC]) + orig_bytes[2:]
+            offset     = match["offset_dec"]
+            orig_bytes = bytes.fromhex(match["match_hex"])
+            # Patch strategy: INT3 at first byte, NOPs as preamble filler,
+            # then the original CPUID opcode intact at the end.
+            # When the debugger continues from INT3: NOPs execute, then CPUID runs.
+            # For cpuid_raw (len==2): CPUID cannot be preserved in the same 2 bytes;
+            # replace with INT3 + NOP so continuing is safe (no corrupt instruction).
+            if len(orig_bytes) <= 2:
+                patch_bytes = bytes([0xCC, 0x90])  # INT3 + NOP; CPUID not preserved
+            else:
+                # INT3, then (len-2) NOPs, then original CPUID opcode bytes intact.
+                patch_bytes = bytes([0xCC]) + bytes([0x90] * (len(orig_bytes) - 2)) + cpuid_opcode
+            # [Hypothesis — not validated against Apple EFI binary]
             patches.append({
                 "offset_hex":     f"0x{offset:08X}",
                 "offset_dec":     offset,

@@ -114,13 +114,46 @@ def validate(data: bytes, strict: bool = False) -> Result:
     if ranks_enc > 3:
         r.warn(f"Byte 7 ranks encoding = {ranks_enc}; unusual value")
 
-    # Placeholder detection: warn if timing fields (bytes 17-29) are all zero
+    # Byte 0: bytes-used / bytes-total encoding
+    # Valid DDR3 256-byte SPD: bits [6:4]=001 (256 total), bits [3:0]=0011 (256 used) = 0x13
+    byte0 = data[0]
+    if byte0 == 0x00:
+        r.error("Byte 0 = 0x00; must be non-zero for a valid SPD")
+    elif byte0 == 0x92:
+        r.error(
+            f"Byte 0 = 0x92; this is an invalid DDR3 encoding (reserved bits set). "
+            f"Correct value for 256-byte SPD is 0x13."
+        )
+    elif (byte0 >> 4) & 0x7 not in (0b001, 0b010):
+        r.warn(f"Byte 0 = 0x{byte0:02X}; bits [6:4] (bytes-total) has an unusual value")
+
+    # Byte 5: row/column address bits
+    # bits [5:3]: row address (000=13, 001=14, 010=15; 011 and above are reserved/invalid DDR3)
+    # bits [2:0]: col address (000=10, 001=11, 010=12; 011 and above are reserved)
+    row_enc = (data[5] >> 3) & 0x7
+    col_enc = data[5] & 0x7
+    if row_enc > 2:
+        r.warn(f"Byte 5 bits [5:3] (row address) = {row_enc}; value > 2 is reserved in DDR3")
+    if col_enc > 2:
+        r.warn(f"Byte 5 bits [2:0] (col address) = {col_enc}; value > 2 is reserved in DDR3")
+
+    # Byte 7 bits [2:0]: SDRAM device width (000=x4, 001=x8, 010=x16; 011+ reserved)
+    sdram_width_enc = data[7] & 0x7
+    if sdram_width_enc > 2:
+        r.error(
+            f"Byte 7 bits [2:0] (SDRAM device width) = {sdram_width_enc}; "
+            f"values > 2 are reserved in DDR3 (000=x4, 001=x8, 010=x16)"
+        )
+
+    # Placeholder detection: error if timing fields (bytes 17-29) are all zero.
+    # This is not a warning — an all-zero timing block guarantees MRC failure.
+    # Use --compare-to-captured or replace with real DIMM data from Stage 0 T0.5.
     timing_bytes = data[17:30]
     if all(b == 0 for b in timing_bytes):
-        r.warn(
+        r.error(
             "Bytes 17-29 (tWR, tRCD, tRRD, tRP, tRAS, tRC, tRFC, tWTR, tRTP, tFAW) "
-            "are all zero. This is a placeholder SPD. MRC will almost certainly fail "
-            "with these values. Replace with real DIMM timing parameters."
+            "are all zero. This is a placeholder SPD. MRC will fail with these values. "
+            "Populate from actual DIMM datasheet or Stage 0 SPD capture before any use."
         )
 
     # SPD revision byte 1

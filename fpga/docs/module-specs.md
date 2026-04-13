@@ -66,7 +66,7 @@ Never drives the bus under any condition.
 | `byte_data_o` | out | 8 | Captured byte; address byte has R/W in bit 0 |
 | `is_addr_o` | out | 1 | High when byte is the address byte of a new transaction |
 | `is_read_o` | out | 1 | High when transaction direction is master-read |
-| `got_ack_o` | out | 1 | High when the byte was ACKed by the receiving device |
+| `got_ack_o` | out | 1 | High when SDA was low during the ACK bit. On write transactions: slave ACK. On read transactions (master receives data): master ACK/NAK. spd_responder uses this to detect master NAK and end a read. |
 | `start_o` | out | 1 | Pulses high on START condition |
 | `stop_o` | out | 1 | Pulses high on STOP condition |
 
@@ -166,7 +166,7 @@ The FPGA itself must not source current onto the SMBus.
 
 ### Non-Goals
 
-- Clock stretching (SCL hold) is not implemented. Labeled `FUTURE CAPABILITY STUB`.
+- Clock stretching (SCL hold) is not implemented. Labeled `PLACEHOLDER` in the RTL (smbus_arbiter.v line ~131).
 - Does not detect SMBus timeout violations (25 ms maximum for clock stretching).
 - Does not arbitrate between multiple FPGA modules injecting simultaneously.
 
@@ -227,7 +227,7 @@ from an external hex file at synthesis via `$readmemh` — never hard-coded.
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `DEVICE_ADDR` | `3'b000` | Slot select: 0=A1(0x50), 1=A2(0x51), 2=B1(0x52), 3=B2(0x53) |
+| `DEVICE_ADDR` | `3'b000` | Slot select: 0=A1(wire byte 0xA0/0xA1), 1=A2(0xA2/0xA3), 2=B1(0xA4/0xA5), 3=B2(0xA6/0xA7). Note: the 7-bit I2C address is {4'b1010, DEVICE_ADDR[2:0]}; wire byte includes R/W in bit 0. |
 | `SPD_HEX_FILE` | `"INVALID_NOT_SET.hex"` | Hex file path. **Must be overridden.** Synthesis will produce a zero ROM if left at default. |
 
 ### Address Match Logic

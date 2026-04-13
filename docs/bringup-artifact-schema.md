@@ -74,17 +74,19 @@ External specifications, datasheets, or design notes. Not primary measurements.
 ## Naming Convention
 
 ```
-{stage}{index}-{type}-{descriptor}-{YYYYMMDD}-{seq:02d}.{ext}
+{stage}-{type}-{descriptor}-{YYYYMMDD}-{seq:02d}.{ext}
 ```
 
 | Part | Values | Example |
 |------|--------|---------|
 | stage | `s0`, `s1`, `s2`, `s3`, `s4` | `s0` |
-| index | two digits | `01` |
 | type | `smbus`, `scope`, `spd`, `cpuid`, `msr`, `acpi`, `rail`, `mech` | `smbus` |
 | descriptor | short underscore-separated description | `post_capture` |
 | date | `YYYYMMDD` | `20250101` |
-| seq | sequence within same day | `01` |
+| seq | two-digit sequence within same day | `01` |
+
+Note: the `{index}` field was removed from the format. All examples and templates
+use `s0-` not `s001-`, and maintaining a separate index alongside `{seq}` is redundant.
 
 **Examples:**
 ```
